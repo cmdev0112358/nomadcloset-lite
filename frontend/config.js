@@ -1,0 +1,2 @@
+export const SUPABASE_URL = 'https://ndhewoolepbedpllrowz.supabase.co';
+export const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5kaGV3b29sZXBiZWRwbGxyb3d6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjI1Mzg0MDAsImV4cCI6MjA3ODExNDQwMH0.1hmQM1jV6Zq7tXJDKYeJaCJiKDsmge_4q15iRzlvXss';

@@ -1,0 +1,80 @@
+-- Row Level Security Policies for Milestone 2
+-- These policies are NOT active in the local prototype.
+
+-- ----------------------------------------------------------------
+-- PRELIMINARY STEP: Enable RLS on all tables
+-- ----------------------------------------------------------------
+-- alter table "places" enable row level security;
+-- alter table "items" enable row level security;
+-- alter table "actions" enable row level security;
+-- alter table "users" enable row level security;
+
+-- ----------------------------------------------------------------
+-- "users" table
+-- ----------------------------------------------------------------
+-- Users can see their own user row
+-- create policy "Allow individual read access"
+-- on "users" for select
+-- using (auth.uid() = id);
+
+-- ----------------------------------------------------------------
+-- "places" and "items" tables
+-- ----------------------------------------------------------------
+-- Users can CRUD their own places and items
+-- create policy "Allow full access for user's own items"
+-- on "items" for all
+-- using (auth.uid() = user_id)
+-- with check (auth.uid() = user_id);
+
+-- create policy "Allow full access for user's own places"
+-- on "places" for all
+-- using (auth.uid() = user_id)
+-- with check (auth.uid() = user_id);
+
+
+-- ----------------------------------------------------------------
+-- "actions" table (Handling anonymous and authenticated)
+-- ----------------------------------------------------------------
+
+-- We need a way to link anonymous sessions to a temporary or persistent user_id.
+-- STRATEGY: The client will generate a UUID and store it in localStorage as 'user_id'.
+-- If logged in, it will use auth.uid().
+
+-- For RLS, we can check against this user_id IF it's passed in the 'actions' row.
+-- This requires trusting the client, OR using a custom session GUC.
+
+-- A simpler RLS for actions:
+-- 1. Allow any user (even anonymous) to INSERT an action.
+--    (The anon key must have INSERT permission)
+-- create policy "Allow anyone to insert an action log"
+-- on "actions" for insert
+-- with check (true);
+
+-- 2. Allow users to read ONLY their own actions (based on user_id)
+-- create policy "Allow users to read their own actions"
+-- on "actions" for select
+-- using (auth.uid() = user_id);
+
+-- ----------------------------------------------------------------
+-- ANONYMOUS MODE (The Hard Part)
+--
+-- If we do not use auth.uid(), RLS based on `user_id = auth.uid()` fails for anon users.
+--
+-- **Recommended Approach for M2 (using Supabase JS):**
+-- 1. On app load, check localStorage for `anon_user_id` (a UUID).
+-- 2. If it doesn't exist, generate a new UUID and save it.
+-- 3. When using Supabase client (e.g., `supabase.from('items')...`), this `anon_user_id`
+--    must be used in *all* `insert` and `select` queries.
+--
+-- 4. The RLS policies must then be based on this client-provided ID.
+--    This is tricky without `auth.uid()`.
+--
+-- **Alternative (Simpler) RLS for Anon Mode:**
+-- We can use Supabase's built-in anonymous auth.
+-- `supabase.auth.signInAnonymously()`
+-- This *will* provide an `auth.uid()` for the anonymous user,
+-- allowing all the policies above to work perfectly.
+-- This will be the strategy for Milestone 2.
+--
+-- We will tell RLS: "Allow access if the row's user_id matches the authenticated user's ID."
+-- This works for *both* logged-in users and anonymous-signed-in users.

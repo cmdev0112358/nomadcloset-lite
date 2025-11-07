@@ -1,0 +1,15 @@
+id,user_id,session_id,action_type,item_id,item_name,from_place_id,to_place_id,metadata,created_at
+act_1678886400_1,user_b7e7a8d2,sess_abc123,create_place,,Casa Uni,,"{""category"": null}"",2025-03-15T12:00:00Z
+act_1678886401_2,user_b7e7a8d2,sess_abc123,create_place,,Casa Genitori,,"{""category"": null}"",2025-03-15T12:00:01Z
+act_1678886402_3,user_b7e7a8d2,sess_abc123,create_place,,Valigia,,"{""category"": null}"",2025-03-15T12:00:02Z
+act_1678886430_4,user_b7e7a8d2,sess_abc123,create_item,item_c3f1a9d7,Black Hoodie,,"{""category"": ""Clothing""}",2025-03-15T12:00:30Z
+act_1678886435_5,user_b7e7a8d2,sess_abc123,create_item,item_d4e2b0e8,Laptop Charger,,"{""category"": ""Tech""}",2025-03-15T12:00:35Z
+act_1678886440_6,user_b7e7a8d2,sess_abc123,create_item,item_f5a3c1f9,Book - ""Dune"",,"{""category"": ""Reading""}",2025-03-15T12:00:40Z
+act_1678886445_7,user_b7e7a8d2,sess_abc123,create_item,item_g6b4d2a0,Sneakers,,"{""category"": ""Clothing""}",2025-03-15T12:00:45Z
+act_1678886460_8,user_b7e7a8d2,sess_abc123,move_item,item_c3f1a9d7,Black Hoodie,place_uni,place_valigia,"{""note"":""packing""}",2025-03-15T12:01:00Z
+act_1678886462_9,user_b7e7a8d2,sess_abc123,move_item,item_d4e2b0e8,Laptop Charger,place_uni,place_valigia,"{""note"":""packing""}",2025-03-15T12:01:02Z
+act_1678886464_10,user_b7e7a8d2,sess_abc123,move_item,item_g6b4d2a0,Sneakers,place_genitori,place_valigia,"{""note"":""packing""}",2025-03-15T12:01:04Z
+act_1678886470_11,user_b7e7a8d2,sess_abc123,export_csv,,,,,"{""rows"": 11}",2025-03-15T12:01:10Z
+act_1678900800_12,user_b7e7a8d2,sess_def456,move_item,item_c3f1a9d7,Black Hoodie,place_valigia,place_uni,,"2025-03-16T16:00:00Z"
+act_1678900805_13,user_b7e7a8d2,sess_def456,move_item,item_d4e2b0e8,Laptop Charger,place_valigia,place_uni,,"2025-03-16T16:00:05Z"
+act_1678900810_14,user_b7e7a8d2,sess_def456,move_item,item_f5a3c1f9,Book - ""Dune"",place_uni,place_valigia,,"2025-03-16T16:00:10Z"

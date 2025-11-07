@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <title>NomadCloset Lite</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header>
+        <h1>NomadCloset Lite</h1>
+        <div class="controls">
+            <button id="add-place-btn">New Place</button>
+            <button id="add-item-btn">New Item</button>
+            <button id="export-csv-btn">Export Log (CSV)</button>
+        </div>
+        <div class="session-info">
+            Session ID: <span id="session-id-display">...</span>
+        </div>
+    </header>
+
+    <main class="container">
+        <nav class="sidebar" id="places-container">
+            <h2>Places</h2>
+            <ul id="places-list">
+                </ul>
+        </nav>
+
+        <section class="main-content" id="items-container">
+            <h2>Items</h2>
+            <ul id="items-list">
+                </ul>
+        </section>
+    </main>
+
+    <div id="add-place-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h3>Create New Place</h3>
+            <input type="text" id="new-place-name" placeholder="Place name (e.g., Home Office)">
+            <button id="save-place-btn">Save</button>
+        </div>
+    </div>
+
+    <div id="add-item-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h3>Add New Item</h3>
+            <input type="text" id="new-item-name" placeholder="Item name (e.g., Black Hoodie)">
+            <input type="text" id="new-item-category" placeholder="Category (e.g., Clothing)">
+            <select id="new-item-place"></select>
+            <button id="save-item-btn">Save</button>
+        </div>
+    </div>
+
+    <div id="move-item-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h3>Move Item</h3>
+            <p>Move <strong id="move-item-name">...</strong> to:</p>
+            <select id="move-item-place"></select>
+            <button id="save-move-btn">Move</button>
+            <input type="hidden" id="move-item-id">
+        </div>
+    </div>
+
+    <script src="app.js" type="module"></script>
+</body>
+</html>
