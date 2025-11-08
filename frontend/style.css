@@ -47,9 +47,14 @@ header .session-info {
   color: #ccc;
   margin-bottom: 10px;
 }
-h2 {
+#items-header {
+  display: flex;
+  justify-content: space-between; /* Puts "Items" on left, button on right */
+  align-items: center;
   margin-bottom: 15px;
   border-bottom: 2px solid #eee;
+}
+h2 {
   padding-bottom: 5px;
 }
 ul {
@@ -159,6 +164,24 @@ button:hover {
 #logout-btn:hover {
   background: #c82333;
 }
+.delete-btn {
+  background-color: #6c757d; /* A neutral gray */
+  font-size: 0.8em;
+  padding: 3px 8px;
+  margin-left: 5px;
+}
+.delete-btn:hover {
+  background-color: #dc3545; /* Red on hover, for danger */
+}
+.rename-btn {
+  background-color: #6c757d;
+  font-size: 0.8em;
+  padding: 3px 8px;
+  margin-left: 5px;
+}
+.rename-btn:hover {
+  background-color: #007bff; /* Blue on hover */
+}
 
 /* Modals */
 .modal {
@@ -199,6 +222,140 @@ button:hover {
   width: 100%;
   padding: 8px;
   margin: 10px 0;
+}
+
+/*
+========================================
+Item Action Menu
+========================================
+*/
+
+/* The "..." button */
+.action-btn {
+  background: #6c757d;
+  font-weight: bold;
+  padding: 3px 10px;
+}
+.action-btn:hover {
+  background: #5a6268;
+}
+
+/* Wrapper for the dropdown menu */
+/* We use position: relative so the absolute menu stays inside */
+.action-menu-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+/* The dropdown menu itself (hidden by default) */
+.action-menu {
+  display: none; /* Hidden */
+  position: absolute;
+  right: 0; /* Align to the right of the button */
+  top: 30px; /* Position it just below the button */
+  background-color: white;
+  min-width: 120px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  z-index: 100; /* Make sure it's on top */
+}
+
+/* Links inside the menu */
+.action-menu a {
+  color: black;
+  padding: 10px 15px;
+  text-decoration: none;
+  display: block;
+  font-size: 0.9em;
+}
+
+/* Add hover effect to menu links */
+.action-menu a:hover {
+  background-color: #f4f4f4;
+}
+
+/* Special color for the delete link */
+.action-menu a.delete {
+  color: #dc3545;
+}
+.action-menu a.delete:hover {
+  background-color: #fbebee;
+}
+
+/* This class will be toggled by JavaScript to show the menu */
+.action-menu.show {
+  display: block;
+}
+
+/*
+========================================
+Smart Header & Bulk Actions
+========================================
+*/
+
+/* This replaces the #items-header style */
+#items-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  border-bottom: 2px solid #eee;
+  min-height: 40px; /* Stops content from jumping */
+}
+#items-header-left {
+  display: flex;
+  align-items: center;
+}
+#items-header-left #select-all-checkbox {
+  margin-right: 15px;
+  transform: scale(1.5);
+}
+/* We remove the old h2 styles, as it's now part of a flexbox */
+#items-header-left h2 {
+  padding-bottom: 0;
+  border-bottom: none;
+  margin-bottom: 0;
+}
+#items-header-left #bulk-selected-count {
+  font-weight: bold;
+}
+
+/* This replaces the #items-list li style */
+#items-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+  /* Add a cursor to show the whole row is clickable */
+  cursor: pointer;
+}
+#items-list li:hover {
+  background-color: #f9f9f9;
+}
+
+/* The item-info div now holds the checkbox + text */
+.item-info {
+  flex-grow: 1; /* Take up available space */
+  display: flex;
+  align-items: center;
+}
+.item-info .item-category {
+  font-size: 0.85em;
+  color: #666;
+  margin-left: 10px;
+}
+/* This is the new permanent checkbox */
+.item-checkbox {
+  margin-right: 15px;
+  transform: scale(1.5);
+  cursor: pointer; /* Show it's clickable */
+}
+
+/* When an item is selected, give it a blue background */
+.item-selected {
+  background-color: #eef !important;
 }
 
 /*
