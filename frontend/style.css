@@ -217,11 +217,17 @@ button:hover {
   text-decoration: none;
   cursor: pointer;
 }
-.modal-content input,
+.modal-content input[type="text"],
 .modal-content select {
   width: 100%;
   padding: 8px;
   margin: 10px 0;
+}
+/* Make number inputs smaller */
+.modal-content input[type="number"] {
+  width: 70px; /* Small width */
+  padding: 8px;
+  margin: 10px 0 10px 5px;
 }
 
 /*

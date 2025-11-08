@@ -368,7 +368,9 @@ async function renderItems() {
                     item.id
                   }" ${isSelected ? "checked" : ""}>
                   <div> 
-                    <strong>${item.name}</strong> (${placeName})
+                    <strong>${item.name} ${
+      item.quantity > 1 ? `(x${item.quantity})` : ""
+    }</strong> (${placeName})
                     <span class="item-category">${
                       item.categories ? item.categories.name : ""
                     }</span>
@@ -385,9 +387,11 @@ async function renderItems() {
                       }" data-name="${item.name}" data-from-id="${
       item.place_id
     }">Move</a>
-                      <a href="#" class="menu-rename" data-id="${
+                      <a href="#" class="menu-modify" data-id="${
                         item.id
-                      }" data-name="${item.name}">Rename</a>
+                      }" data-name="${item.name}" data-quantity="${
+      item.quantity
+    }">Modify</a>
                       <a href="#" class="menu-delete delete" data-id="${
                         item.id
                       }" data-name="${item.name}">Delete</a>
@@ -417,11 +421,15 @@ async function renderItems() {
       closeAllActionMenus();
     });
   });
-  ul.querySelectorAll(".menu-rename").forEach((link) => {
+  ul.querySelectorAll(".menu-modify").forEach((link) => {
     link.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
-      openRenameModal(e.target.dataset.id, e.target.dataset.name);
+      openModifyModal(
+        e.target.dataset.id,
+        e.target.dataset.name,
+        e.target.dataset.quantity
+      );
       closeAllActionMenus();
     });
   });
@@ -540,12 +548,15 @@ function setupModals() {
   };
   document.getElementById("save-item-btn").onclick = async () => {
     const name = document.getElementById("new-item-name").value;
+    const quantity =
+      parseInt(document.getElementById("new-item-quantity").value) || 1;
     const category_id = document.getElementById("new-item-category").value;
     const place_id = document.getElementById("new-item-place").value;
     if (!name || !place_id) return alert("Name and place are required.");
 
     const newItem = {
       name: name,
+      quantity: quantity,
       category_id: category_id,
       place_id: place_id,
       user_id: CURRENT_USER_ID,
@@ -611,16 +622,23 @@ function setupModals() {
     renderItems();
   };
 
-  document.getElementById("save-rename-btn").onclick = async () => {
-    const itemId = document.getElementById("rename-item-id").value;
-    const newName = document.getElementById("rename-item-name-new").value;
+  // Use new button ID
+  document.getElementById("save-modify-btn").onclick = async () => {
+    // Use new input IDs
+    const itemId = document.getElementById("modify-item-id").value;
+    const newName = document.getElementById("modify-item-name-new").value;
+    const newQuantity =
+      parseInt(document.getElementById("modify-item-quantity").value) || 1;
 
     if (!newName) {
       alert("Please enter a new name.");
       return;
     }
-    await handleRenameItem(itemId, newName);
-    document.getElementById("rename-item-modal").style.display = "none";
+
+    // Call our handler function
+    await handleModifyItem(itemId, newName, newQuantity);
+
+    document.getElementById("modify-item-modal").style.display = "none";
   };
 
   // Bulk Move modal
@@ -653,22 +671,24 @@ function closeAllActionMenus() {
 }
 
 // --- Single Item Action Handlers ---
-async function handleRenameItem(itemId, newName) {
-  console.log(`Renaming item ${itemId} to: ${newName}`);
+async function handleModifyItem(itemId, newName, newQuantity) {
+  console.log(`Modifying item ${itemId} to: ${newName} (x${newQuantity})`);
+
   const { error } = await supabaseClient
     .from("items")
-    .update({ name: newName })
+    .update({ name: newName, quantity: newQuantity })
     .eq("id", itemId);
 
   if (error) {
-    console.error("Error renaming item:", error);
-    alert("Error renaming item: " + error.message);
+    console.error("Error modifying item:", error);
+    alert("Error modifying item: " + error.message);
     return;
   }
-  logAction("rename_item", {
+  // Log it as 'modify_item'
+  logAction("modify_item", {
     item_id: itemId,
     item_name: newName,
-    metadata: { note: `Renamed from old name` },
+    metadata: { note: `Item modified` },
   });
   await renderItems();
 }
@@ -698,12 +718,15 @@ function openMoveModal(id, name, fromId) {
   document.getElementById("move-item-modal").style.display = "block";
 }
 
-function openRenameModal(id, currentName) {
-  document.getElementById("rename-item-id").value = id;
-  document.getElementById("rename-item-name-old").innerText = currentName;
-  document.getElementById("rename-item-name-new").value = currentName;
-  document.getElementById("rename-item-modal").style.display = "block";
-  document.getElementById("rename-item-name-new").focus();
+// Renamed function
+function openModifyModal(id, currentName, currentQuantity) {
+  document.getElementById("modify-item-id").value = id;
+  document.getElementById("modify-item-name-old").innerText = currentName;
+  document.getElementById("modify-item-name-new").value = currentName;
+  document.getElementById("modify-item-quantity").value = currentQuantity || 1;
+
+  document.getElementById("modify-item-modal").style.display = "block";
+  document.getElementById("modify-item-name-new").focus();
 }
 
 // --- Bulk Action Handlers ---

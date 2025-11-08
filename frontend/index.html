@@ -111,6 +111,7 @@
           id="new-item-name"
           placeholder="Item name (e.g., Black Hoodie)"
         />
+        <input type="number" id="new-item-quantity" value="1" min="1" />
         <select id="new-item-category"></select>
         <select id="new-item-place"></select>
         <button id="save-item-btn">Save</button>
@@ -126,18 +127,19 @@
         <input type="hidden" id="move-item-id" />
       </div>
     </div>
-    <div id="rename-item-modal" class="modal">
+    <div id="modify-item-modal" class="modal">
       <div class="modal-content">
         <span class="close-btn">&times;</span>
-        <h3>Rename Item</h3>
-        <p>Rename <strong id="rename-item-name-old">...</strong> to:</p>
+        <h3>Modify Item</h3>
+        <p>Modify <strong id="modify-item-name-old">...</strong>:</p>
         <input
           type="text"
-          id="rename-item-name-new"
+          id="modify-item-name-new"
           placeholder="New item name"
         />
-        <button id="save-rename-btn">Save Rename</button>
-        <input type="hidden" id="rename-item-id" />
+        <input type="number" id="modify-item-quantity" value="1" min="1" />
+        <button id="save-modify-btn">Save Changes</button>
+        <input type="hidden" id="modify-item-id" />
       </div>
     </div>
     <div id="bulk-move-modal" class="modal">
