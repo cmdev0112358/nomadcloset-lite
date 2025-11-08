@@ -4,112 +4,239 @@ import { SUPABASE_URL, SUPABASE_KEY } from './config.js';
 let CURRENT_USER_ID = null;
 let CURRENT_SESSION_ID = '';
 let ACTIVE_PLACE_ID = 'all'; // 'all' by default
+let allPlacesCache = []; // Cache places for rendering item lists
 
 // --- Supabase Client ---
-// The global 'supabase' object comes from the CDN script in index.html
-// We create our own client variable with a *different name* to avoid conflict.
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// --- UI Elements ---
+const appContainer = document.getElementById('app-container');
+const authContainer = document.getElementById('auth-container');
+const appControls = document.getElementById('app-controls');
+const logoutBtn = document.getElementById('logout-btn');
+const sessionIdDisplay = document.getElementById('session-id-display');
 
-// --- Database Wrapper (Supabase) ---
-const db = {
+// --- Auth Functions (NEW) ---
 
-    auth: async () => {
-        // 1. Check for an existing session in localStorage
-        const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
-
-        let currentUser = null;
-
-        if (sessionError) {
-             console.error('Error getting session:', sessionError);
-             document.body.innerHTML = '<h1>Error connecting to database. Please check console.</h1>';
-             throw sessionError; // Throw error to stop init
-        }
-
-        if (session) {
-            // User already has a session (from a previous visit)
-            console.log('Found existing session:', session.user);
-            currentUser = session.user;
-        } else {
-            // No session found, sign in anonymously
-            console.log('No session found, signing in anonymously...');
-            const { data: anonData, error: anonError } = await supabaseClient.auth.signInAnonymously();
-            
-            if (anonError) {
-                console.error('Error signing in anonymously:', anonError);
-                document.body.innerHTML = '<h1>Error connecting to database. Please check console.</h1>';
-                throw anonError; // Throw error to stop init
-            }
-            console.log('Anonymous auth successful:', anonData.user);
-            currentUser = anonData.user;
-        }
-        
-        // This user_id will now be the same on every reload
-        CURRENT_USER_ID = currentUser.id;
-
-        // Set session ID for action logging
-        CURRENT_SESSION_ID = `sess_${Date.now()}`;
-        document.getElementById('session-id-display').innerText = CURRENT_SESSION_ID;
-
-        // Check if this is a new user
-        await db.initDefaultPlaces();
-    },
-
-    initDefaultPlaces: async () => {
-        // Check if the user already has places
-        const { data, error } = await supabaseClient
-            .from('places')
-            .select('id')
-            .eq('user_id', CURRENT_USER_ID)
-            .limit(1);
-
-        if (error) console.error('Error checking for places:', error);
-
-        // If no places exist, create the defaults
-        if (data && data.length === 0) {
-            console.log('No places found, creating defaults...');
-            const defaultPlaces = [
-                { name: 'Casa Uni', user_id: CURRENT_USER_ID },
-                { name: 'Casa Genitori', user_id: CURRENT_USER_ID },
-                { name: 'Valigia', user_id: CURRENT_USER_ID }
-            ];
-            
-            const { error: insertError } = await supabaseClient.from('places').insert(defaultPlaces);
-            if (insertError) console.error('Error creating default places:', insertError);
-
-            // Log the creation (best effort)
-            defaultPlaces.forEach(place => {
-                logAction('create_place', { place_id: null, place_name: place.name });
-            });
-        }
-    },
-
-    getPlaces: async () => {
-        const { data, error } = await supabaseClient
-            .from('places')
-            .select('*')
-            .eq('user_id', CURRENT_USER_ID);
-        if (error) console.error('Error fetching places:', error);
-        return data || [];
-    },
-
-    getItems: async () => {
-        const { data, error } = await supabaseClient
-            .from('items')
-            .select('*, places(name)') // Join to get place name
-            .eq('user_id', CURRENT_USER_ID);
-        if (error) console.error('Error fetching items:', error);
-        return data || [];
-    },
-
-    getPlaceName: (placeId, allPlaces) => {
-        if (!placeId) return 'N/A';
-        const place = allPlaces.find(p => p.id === placeId);
-        return place ? place.name : 'Unknown';
+/**
+ * Checks for an existing user session.
+ * If found, initializes the app.
+ * If not, shows the login/signup forms.
+ */
+async function checkUserSession() {
+    const { data: { session }, error } = await supabaseClient.auth.getSession();
+    
+    if (error) {
+        console.error('Error getting session:', error);
+        return;
     }
-};
 
-// --- Action Logger ---
+    if (session) {
+        // User is logged in
+        initializeApp(session.user);
+    } else {
+        // No user logged in
+        showAuthUI();
+    }
+}
+
+/**
+ * Initializes the main application UI for a logged-in user.
+ */
+async function initializeApp(user) {
+    console.log('User logged in:', user.email);
+    CURRENT_USER_ID = user.id;
+    CURRENT_SESSION_ID = `sess_${Date.now()}`;
+    
+    // Show user email and logout button
+    sessionIdDisplay.innerText = user.email;
+    logoutBtn.classList.remove('hidden');
+
+    // Show app, hide auth
+    authContainer.classList.add('hidden');
+    appContainer.classList.remove('hidden');
+    appControls.classList.remove('hidden');
+
+    // Check for default places (same as before)
+    await initDefaultPlaces();
+    
+    // Setup main app UI
+    setupModals(); // This is our existing function
+    document.getElementById('export-csv-btn').addEventListener('click', exportActionsToCSV);
+
+    // Initial Render
+    await renderPlaces();
+    await renderItems();
+}
+
+/**
+ * Shows the login/signup forms.
+ */
+function showAuthUI() {
+    console.log('No user session, showing Auth UI.');
+    // Hide app, show auth
+    authContainer.classList.remove('hidden');
+    appContainer.classList.add('hidden');
+    appControls.classList.add('hidden');
+
+    // Clear user display and hide logout
+    sessionIdDisplay.innerText = "Logged Out";
+    logoutBtn.classList.add('hidden');
+}
+
+/**
+ * Handles the user Sign Up form.
+ */
+async function handleSignUp(e) {
+    e.preventDefault();
+    const email = document.getElementById('signup-email').value;
+    const password = document.getElementById('signup-password').value;
+    const authMessage = document.getElementById('auth-message');
+
+    const { data, error } = await supabaseClient.auth.signUp({
+        email: email,
+        password: password,
+    });
+
+    if (error) {
+        authMessage.innerText = 'Error signing up: ' + error.message;
+        return;
+    }
+
+    // Check your Supabase project settings.
+    // If "Confirm email" is ON, show this message.
+    authMessage.innerText = 'Sign up successful! Please check your email to confirm.';
+    // If "Confirm email" is OFF, the user is logged in. We can auto-login them.
+    if (data.user) {
+         authMessage.innerText = 'Sign up successful! Logging you in...';
+         initializeApp(data.user);
+    }
+}
+
+/**
+ * Handles the user Log In form.
+ */
+async function handleLogin(e) {
+    e.preventDefault();
+    const email = document.getElementById('login-email').value;
+    const password = document.getElementById('login-password').value;
+    const authMessage = document.getElementById('auth-message');
+
+    const { data, error } = await supabaseClient.auth.signInWithPassword({
+        email: email,
+        password: password,
+    });
+
+    if (error) {
+        authMessage.innerText = 'Error logging in: ' + error.message;
+        return;
+    }
+
+    // Login successful, initialize the app
+    authMessage.innerText = '';
+    initializeApp(data.user);
+}
+
+/**
+ * Handles the user Log Out button.
+ */
+async function handleLogout() {
+    const { error } = await supabaseClient.auth.signOut();
+    
+    if (error) {
+        console.error('Error logging out:', error);
+        return;
+    }
+
+    // This will clear the session.
+    // We can just reload the page, and checkUserSession() will handle the rest.
+    window.location.reload();
+}
+
+/**
+ * Sets up listeners for the auth forms (login, signup, links).
+ */
+function setupAuthListeners() {
+    document.getElementById('login-form').addEventListener('submit', handleLogin);
+    document.getElementById('signup-form').addEventListener('submit', handleSignUp);
+    document.getElementById('logout-btn').addEventListener('click', handleLogout);
+
+    // Toggle between login and signup forms
+    const loginForm = document.getElementById('login-form');
+    const signupForm = document.getElementById('signup-form');
+    
+    document.getElementById('show-signup').addEventListener('click', (e) => {
+        e.preventDefault();
+        loginForm.classList.add('hidden');
+        signupForm.classList.remove('hidden');
+        document.getElementById('auth-message').innerText = '';
+    });
+
+    document.getElementById('show-login').addEventListener('click', (e) => {
+        e.preventDefault();
+        signupForm.classList.add('hidden');
+        loginForm.classList.remove('hidden');
+        document.getElementById('auth-message').innerText = '';
+    });
+}
+
+
+// --- Database & App Functions (Mostly Unchanged) ---
+
+/**
+ * Checks if a new user needs default places created.
+ * (This is the same function as before)
+ */
+async function initDefaultPlaces() {
+    const { data, error } = await supabaseClient
+        .from('places')
+        .select('id')
+        .eq('user_id', CURRENT_USER_ID)
+        .limit(1);
+
+    if (error) console.error('Error checking for places:', error);
+
+    if (data && data.length === 0) {
+        console.log('No places found, creating defaults...');
+        const defaultPlaces = [
+            { name: 'Casa Uni', user_id: CURRENT_USER_ID },
+            { name: 'Casa Genitori', user_id: CURRENT_USER_ID },
+            { name: 'Valigia', user_id: CURRENT_USER_ID }
+        ];
+        
+        const { error: insertError } = await supabaseClient.from('places').insert(defaultPlaces);
+        if (insertError) console.error('Error creating default places:', insertError);
+
+        defaultPlaces.forEach(place => {
+            logAction('create_place', { place_name: place.name });
+        });
+    }
+}
+
+async function getPlaces() {
+    const { data, error } = await supabaseClient
+        .from('places')
+        .select('*')
+        .eq('user_id', CURRENT_USER_ID);
+    if (error) console.error('Error fetching places:', error);
+    return data || [];
+}
+
+async function getItems() {
+    const { data, error } = await supabaseClient
+        .from('items')
+        .select('*, places(name)') // Join to get place name
+        .eq('user_id', CURRENT_USER_ID);
+    if (error) console.error('Error fetching items:', error);
+    return data || [];
+}
+
+function getPlaceName(placeId, allPlaces) {
+    if (!placeId) return 'N/A';
+    const place = allPlaces.find(p => p.id === placeId);
+    return place ? place.name : 'Unknown';
+}
+
 async function logAction(action_type, data = {}) {
     const newAction = {
         user_id: CURRENT_USER_ID,
@@ -123,12 +250,12 @@ async function logAction(action_type, data = {}) {
         created_at: new Date().toISOString()
     };
     
-    // Handle specific action fields
     if (action_type === 'create_item') {
         newAction.to_place_id = data.place_id;
     }
     if (action_type === 'create_place') {
-        newAction.to_place_id = data.place_id;
+        // We need the ID from the DB, so this log is slightly different.
+        // Let's just log the name.
         newAction.item_name = data.place_name;
     }
 
@@ -137,11 +264,9 @@ async function logAction(action_type, data = {}) {
     else console.log('Action Logged:', newAction);
 }
 
-// --- Render Functions ---
-let allPlacesCache = []; // Cache places for rendering item lists
-
+// --- Render Functions (Unchanged) ---
 async function renderPlaces() {
-    const places = await db.getPlaces();
+    const places = await getPlaces();
     allPlacesCache = places; // Update cache
     const ul = document.getElementById('places-list');
     ul.innerHTML = `<li data-id="all" class="${ACTIVE_PLACE_ID === 'all' ? 'active' : ''}">All Items</li>`;
@@ -150,20 +275,18 @@ async function renderPlaces() {
         ul.innerHTML += `<li data-id="${place.id}" class="${ACTIVE_PLACE_ID === place.id ? 'active' : ''}">${place.name}</li>`;
     });
 
-    // Add click listeners
     ul.querySelectorAll('li').forEach(li => {
         li.addEventListener('click', () => {
             ACTIVE_PLACE_ID = li.getAttribute('data-id');
-            renderPlaces(); // Re-render places to show active state
-            renderItems(); // Re-render items for the selected place
+            renderPlaces(); 
+            renderItems(); 
         });
     });
-
     updatePlaceDropdowns(places);
 }
 
 async function renderItems() {
-    const items = await db.getItems();
+    const items = await getItems();
     const ul = document.getElementById('items-list');
     ul.innerHTML = '';
 
@@ -177,8 +300,7 @@ async function renderItems() {
     }
 
     filteredItems.forEach(item => {
-        // Use joined place name if available, otherwise use cache
-        const placeName = item.places ? item.places.name : db.getPlaceName(item.place_id, allPlacesCache);
+        const placeName = item.places ? item.places.name : getPlaceName(item.place_id, allPlacesCache);
         ul.innerHTML += `
             <li data-id="${item.id}">
                 <div class="item-info">
@@ -190,7 +312,6 @@ async function renderItems() {
         `;
     });
 
-    // Add move button listeners
     ul.querySelectorAll('.move-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
             const id = e.target.getAttribute('data-id');
@@ -209,16 +330,15 @@ function updatePlaceDropdowns(places) {
     ];
 
     selects.forEach(select => {
-        select.innerHTML = ''; // Clear existing options
+        select.innerHTML = '';
         places.forEach(place => {
             select.innerHTML += `<option value="${place.id}">${place.name}</option>`;
         });
     });
 }
 
-// --- Modal Handling ---
+// --- Modal Handling (Unchanged, but one fix in save-place) ---
 function setupModals() {
-    // Generic open/close
     document.querySelectorAll('.modal').forEach(modal => {
         const closeBtn = modal.querySelector('.close-btn');
         closeBtn.onclick = () => { modal.style.display = 'none'; };
@@ -229,7 +349,6 @@ function setupModals() {
         }
     };
 
-    // --- Add Place Modal ---
     const addPlaceModal = document.getElementById('add-place-modal');
     document.getElementById('add-place-btn').onclick = () => {
         addPlaceModal.style.display = 'block';
@@ -239,26 +358,19 @@ function setupModals() {
         const name = document.getElementById('new-place-name').value;
         if (!name) return alert('Please enter a name.');
 
-        const newPlace = {
-            name: name,
-            user_id: CURRENT_USER_ID
-        };
-        
+        const newPlace = { name: name, user_id: CURRENT_USER_ID };
         const { data, error } = await supabaseClient.from('places').insert(newPlace).select();
         
-        if (error) {
-            alert('Error creating place: ' + error.message);
-            return;
-        }
+        if (error) { alert('Error creating place: ' + error.message); return; }
 
+        // Log action
         logAction('create_place', { place_id: data[0].id, place_name: data[0].name });
         
         document.getElementById('new-place-name').value = '';
         addPlaceModal.style.display = 'none';
-        renderPlaces(); // This will also update dropdowns
+        renderPlaces();
     };
 
-    // --- Add Item Modal ---
     const addItemModal = document.getElementById('add-item-modal');
     document.getElementById('add-item-btn').onclick = () => {
         addItemModal.style.display = 'block';
@@ -270,19 +382,10 @@ function setupModals() {
         const place_id = document.getElementById('new-item-place').value;
         if (!name || !place_id) return alert('Name and place are required.');
 
-        const newItem = {
-            name: name,
-            category: category,
-            place_id: place_id,
-            user_id: CURRENT_USER_ID
-        };
-
+        const newItem = { name: name, category: category, place_id: place_id, user_id: CURRENT_USER_ID };
         const { data, error } = await supabaseClient.from('items').insert(newItem).select();
 
-        if (error) {
-            alert('Error creating item: ' + error.message);
-            return;
-        }
+        if (error) { alert('Error creating item: ' + error.message); return; }
 
         logAction('create_item', { item_id: data[0].id, item_name: data[0].name, place_id: data[0].place_id });
         
@@ -292,35 +395,25 @@ function setupModals() {
         renderItems();
     };
 
-    // --- Move Item Modal ---
     document.getElementById('save-move-btn').onclick = async () => {
         const itemId = document.getElementById('move-item-id').value;
         const toPlaceId = document.getElementById('move-item-place').value;
         
         const { data: itemData, error: findError } = await supabaseClient
-            .from('items')
-            .select('name, place_id')
-            .eq('id', itemId)
-            .single();
+            .from('items').select('name, place_id').eq('id', itemId).single();
 
         if (findError) return alert('Item not found.');
         
         const fromPlaceId = itemData.place_id;
         if (fromPlaceId === toPlaceId) {
              document.getElementById('move-item-modal').style.display = 'none';
-             return; // No change, just close modal
+             return; 
         }
 
-        const { data, error } = await supabaseClient
-            .from('items')
-            .update({ place_id: toPlaceId })
-            .eq('id', itemId);
+        const { error } = await supabaseClient
+            .from('items').update({ place_id: toPlaceId }).eq('id', itemId);
 
-        if (error) {
-            // This is the corrected line
-            alert('Error moving item: ' + error.message);
-            return;
-        }
+        if (error) { alert('Error moving item: ' + error.message); return; }
 
         logAction('move_item', {
             item_id: itemId,
@@ -335,31 +428,23 @@ function setupModals() {
 }
 
 function openMoveModal(id, name, fromId) {
-    // Pre-select a *different* place
     const targetSelect = document.getElementById('move-item-place');
     const firstDifferentPlace = allPlacesCache.find(p => p.id !== fromId);
     if (firstDifferentPlace) {
         targetSelect.value = firstDifferentPlace.id;
     }
-
     document.getElementById('move-item-name').innerText = name;
     document.getElementById('move-item-id').value = id;
     document.getElementById('move-item-modal').style.display = 'block';
 }
 
-// --- Export Function ---
+// --- Export Function (Unchanged) ---
 async function exportActionsToCSV() {
     const { data: actions, error } = await supabaseClient
-        .from('actions')
-        .select('*')
-        .eq('user_id', CURRENT_USER_ID);
+        .from('actions').select('*').eq('user_id', CURRENT_USER_ID);
 
     if (error) return alert('Error fetching actions: ' + error.message);
-
-    if (!actions || actions.length === 0) {
-        alert('No actions to export.');
-        return;
-    }
+    if (!actions || actions.length === 0) { alert('No actions to export.'); return; }
 
     const headers = Object.keys(actions[0]);
     let csvContent = "data:text/csv;charset=utf-8,";
@@ -368,15 +453,9 @@ async function exportActionsToCSV() {
     actions.forEach(row => {
         const values = headers.map(header => {
             let val = row[header];
-            // Anonymize user_id in the export (even though it's a UUID)
-            if (header === 'user_id') {
-                val = `user_${val.substring(0, 8)}`;
-            }
-            if (typeof val === 'string') {
-                val = '"' + val.replace(/"/g, '""') + '"';
-            } else if (val === null) {
-                val = '""';
-            }
+            if (header === 'user_id') { val = `user_${val.substring(0, 8)}`; }
+            if (typeof val === 'string') { val = '"' + val.replace(/"/g, '""') + '"'; }
+            else if (val === null) { val = '""'; }
             return val;
         });
         csvContent += values.join(",") + "\n";
@@ -393,17 +472,11 @@ async function exportActionsToCSV() {
     logAction('export_csv', { metadata: { rows: actions.length } });
 }
 
-// --- App Initialization ---
-document.addEventListener('DOMContentLoaded', async () => {
-    // 1. Authenticate (anonymously)
-    await db.auth();
+// --- App Initialization (NEW) ---
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Set up listeners for the Login/Signup forms
+    setupAuthListeners();
     
-    // 2. Setup UI
-    setupModals();
-    document.getElementById('export-csv-btn').addEventListener('click', exportActionsToCSV);
-
-    // 3. Initial Render
-    // db.auth() already called initDefaultPlaces
-    await renderPlaces();
-    await renderItems();
+    // 2. Check if the user is already logged in
+    checkUserSession();
 });
