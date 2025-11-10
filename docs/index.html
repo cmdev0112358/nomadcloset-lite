@@ -124,8 +124,14 @@
           placeholder="Item name (e.g., Black Hoodie)"
         />
         <input type="number" id="new-item-quantity" value="1" min="1" />
-        <select id="new-item-category"></select>
-        <select id="new-item-place"></select>
+        <div class="form-row">
+          <select id="new-item-category"></select>
+            <button type="button" id="add-category-quick-btn" class="add-btn-small" title="New Category">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="20px" height="20px">
+              <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></svg>
+            </button>
+        </div>
+<select id="new-item-place"></select>
         <button id="save-item-btn">Save</button>
       </div>
     </div>
@@ -181,8 +187,9 @@
     <script src="app.js" type="module"></script>
 
     <footer class="app-footer">
-    <p>NomadCloset Lite © 2025</p>
-    <p><a href="https://github.com/cmdev0112358/NomadCloset-Lite" target="_blank">View on GitHub</a></p>
-    </footer>
+    <p>NomadCloset © 2025 cmdev0112358</p>
+    <p><a href="https://github.com/cmdev0112358/nomadcloset" target="_blank">View on GitHub</a></p>
+    <p><a href="https://github.com/cmdev0112358/nomadcloset/blob/main/documentation/PRIVACY.md" target="_blank">Privacy Policy</a></p>
+</footer>
   </body>
 </html>

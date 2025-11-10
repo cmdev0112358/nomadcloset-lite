@@ -735,6 +735,41 @@ function setupModals() {
       btn.closest(".modal").style.display = "none";
     };
   });
+
+  // Listener for the "Quick Add Category" button
+  document
+    .getElementById("add-category-quick-btn")
+    .addEventListener("click", async () => {
+      const newName = prompt("Enter a new category name:");
+      if (!newName || newName.trim() === "") return;
+
+      // 1. Add it to the database
+      const { data, error } = await supabaseClient
+        .from("categories")
+        .insert({ name: newName.trim(), user_id: CURRENT_USER_ID })
+        .select()
+        .single(); // Get the new category back
+
+      if (error) {
+        if (error.code === "23505") {
+          alert("A category with this name already exists.");
+        } else {
+          // THIS IS THE CORRECTED LINE:
+          alert("Error adding category: " + error.message);
+        }
+        return;
+      }
+
+      // 2. Refresh our category cache
+      await getCategories();
+
+      // 3. Re-populate both dropdowns
+      populateCategoryDropdown();
+      populateCategoryFilter();
+
+      // 4. Auto-select the one we just created!
+      document.getElementById("new-item-category").value = data.id;
+    });
 }
 
 // --- Action Menu Functions ---
