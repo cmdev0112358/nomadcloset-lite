@@ -15,30 +15,32 @@
   </head>
   <body>
     <header>
-    <h1><a href="index.html">NomadCloset</a></h1>
-    <button id="burger-menu-btn">☰</button>
+      <h1><a href="index.html">NomadCloset</a></h1>
+      <button id="burger-menu-btn">☰</button>
 
-    <div class="action-menu-wrapper" id="user-menu-wrapper">
+      <div class="action-menu-wrapper" id="user-menu-wrapper">
         <button class="action-btn" id="user-menu-btn">
-            <span id="user-email-display">...</span> ▼
+          <span id="user-email-display">...</span> ▼
         </button>
-        <div class="action-menu" id="user-menu">
+          <div class="action-menu" id="user-menu">
             <a href="settings.html" id="settings-link">Settings</a>
             <a href="#" id="export-csv-btn">Export Log (CSV)</a>
             <a href="#" id="logout-btn" class="delete">Log Out</a>
-        </div>
-    </div>
-</header>
+          </div>
+      </div>
+    </header>
 
     <main class="container" id="app-container">
       <nav class="sidebar" id="places-container">
         <div id="places-header" class="sidebar-header">
-        <h2>Places</h2>
-        <button id="add-place-btn" class="add-btn" title="Add New Place"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24px" height="24px">
-        <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-    </svg></button>
-    </div>
-    <ul id="places-list">
+          <h2>Places</h2>
+          <button id="add-place-btn" class="add-btn" title="Add New Place">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24px" height="24px">
+            <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+            </svg>
+          </button>
+        </div>
+        <ul id="places-list">
       </nav>
 
       <section class="main-content" id="items-container">
@@ -50,22 +52,19 @@
               title="Select All"
             />
             <h2 id="items-header-title">Items</h2>
-            <span id="bulk-selected-count" class="hidden"
-              >0 items selected</span
-            >
+            <span id="bulk-selected-count" class="hidden">0 items selected</span>
           </div>
           <div id="items-header-right">
             <button id="add-item-btn" class="add-btn" title="Add New Item">
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" width="24px" height="24px">
                 <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-            </svg></button>
+              </svg>
+            </button>
             <div class="action-menu-wrapper hidden" id="bulk-action-menu-wrapper">
               <button class="action-btn" id="bulk-action-btn">⋮</button>
               <div class="action-menu" id="bulk-action-menu">
                 <a href="#" id="bulk-menu-move">Move Selected</a>
-                <a href="#" id="bulk-menu-delete" class="delete"
-                  >Delete Selected</a
-                >
+                <a href="#" id="bulk-menu-delete" class="delete">Delete Selected</a>
               </div>
             </div>
           </div>
@@ -84,19 +83,19 @@
           </div>
           <div id="category-filter-wrapper">
             <select id="category-filter-select">
-                <option value="all">All Categories</option>
+              <option value="all">All Categories</option>
             </select>
-        </div>
+          </div>
         
-        <div id="sort-wrapper">
-        <select id="sort-select">
-            <option value="name-asc">Sort by: Name (A-Z)</option>
-            <option value="name-desc">Sort by: Name (Z-A)</option>
-            <option value="created_at-desc">Sort by: Newest</option>
-            <option value="created_at-asc">Sort by: Oldest</option>
-        </select>
+          <div id="sort-wrapper">
+            <select id="sort-select">
+              <option value="name-asc">Name (A-Z)</option>
+              <option value="name-desc">Name (Z-A)</option>
+              <option value="created_at-desc">Newest</option>
+              <option value="created_at-asc">Oldest</option>
+            </select>
+          </div>
         </div>
-    </div>
         </div>
 
         <ul id="items-list"></ul>
@@ -169,7 +168,7 @@
     <script src="app.js" type="module"></script>
     <script src="app.js" type="module"></script>
 
-<nav id="mobile-menu" class="mobile-menu-hidden">
+    <nav id="mobile-menu" class="mobile-menu-hidden">
     <button id="mobile-menu-close-btn">&times;</button>
     <ul>
         <li class="mobile-menu-section">Account</li>
@@ -177,6 +176,13 @@
         <li><a href="#" id="mobile-export-csv-btn">Export Log (CSV)</a></li>
         <li><a href="#" id="mobile-logout-btn" class="delete">Log Out</a></li>
     </ul>
-</nav>
-</body>
+    </nav>
+
+    <script src="app.js" type="module"></script>
+
+    <footer class="app-footer">
+    <p>NomadCloset Lite © 2025</p>
+    <p><a href="https://github.com/cmdev0112358/NomadCloset-Lite" target="_blank">View on GitHub</a></p>
+    </footer>
+  </body>
 </html>

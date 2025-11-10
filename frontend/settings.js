@@ -3,7 +3,6 @@ import { SUPABASE_URL, SUPABASE_KEY } from "./config.js";
 // --- Configuration ---
 let CURRENT_USER_ID = null;
 let allCategoriesCache = [];
-let allPlacesCache = [];
 
 // --- Supabase Client ---
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -60,7 +59,6 @@ async function initializeApp(user) {
 
   // Load initial data
   await getCategories();
-  await getPlaces();
 
   // Populate the default (Categories) page
   await populateCategoryList();
@@ -92,9 +90,6 @@ async function initializeApp(user) {
   document
     .getElementById("add-category-btn")
     .addEventListener("click", handleAddCategory);
-  document
-    .getElementById("add-place-btn")
-    .addEventListener("click", handleAddPlace);
 
   //Link the Change Password form
   document
@@ -164,7 +159,6 @@ Thank you.
 function setupNavigation() {
   const navItems = {
     "nav-profile": "profile-page",
-    "nav-places": "places-page",
     "nav-categories": "categories-page",
   };
 
@@ -191,8 +185,6 @@ function setupNavigation() {
     // 4. Populate the page if it's Places or Categories
     if (pageId === "categories-page") {
       populateCategoryList();
-    } else if (pageId === "places-page") {
-      populatePlaceList();
     }
 
     // 5. Activate target nav item
@@ -200,7 +192,7 @@ function setupNavigation() {
   });
 
   // Show the categories page by default
-  document.getElementById("nav-categories").click();
+  document.getElementById("nav-profile").click();
 }
 
 //
@@ -220,20 +212,6 @@ async function getCategories() {
     return [];
   }
   allCategoriesCache = data;
-  return data || [];
-}
-
-async function getPlaces() {
-  const { data, error } = await supabaseClient
-    .from("places")
-    .select("*")
-    .eq("user_id", CURRENT_USER_ID)
-    .order("name");
-  if (error) {
-    console.error("Error fetching places:", error);
-    return [];
-  }
-  allPlacesCache = data;
   return data || [];
 }
 
@@ -370,100 +348,6 @@ async function handleChangePassword(e) {
       window.location.href = "login.html";
     }, 2000);
   }
-}
-
-// PLACE MANAGEMENT FUNCTIONS
-async function populatePlaceList() {
-  const list = document.getElementById("place-list");
-  list.innerHTML = "<li>Loading...</li>";
-
-  await getPlaces();
-  list.innerHTML = "";
-
-  if (allPlacesCache.length === 0) {
-    list.innerHTML = "<li>No places found.</li>";
-  }
-
-  allPlacesCache.forEach((place) => {
-    const li = document.createElement("li");
-    li.dataset.id = place.id;
-    li.innerHTML = `
-            <span>${place.name}</span>
-            <div>
-                <button class="rename-place-btn">Rename</button>
-                <button class="delete-place-btn">X</button>
-            </div>
-        `;
-    list.appendChild(li);
-
-    // Add listeners
-    li.querySelector(".rename-place-btn").addEventListener("click", () =>
-      handleRenamePlace(place.id, place.name)
-    );
-    li.querySelector(".delete-place-btn").addEventListener("click", () =>
-      handleDeletePlace(place.id, place.name)
-    );
-  });
-}
-
-async function handleAddPlace() {
-  const nameInput = document.getElementById("new-place-name");
-  const name = nameInput.value.trim();
-  if (!name) {
-    alert("Please enter a place name.");
-    return;
-  }
-
-  const { error } = await supabaseClient
-    .from("places")
-    .insert({ name: name, user_id: CURRENT_USER_ID });
-
-  if (error) {
-    if (error.code === "23505") alert("A place with this name already exists.");
-    else alert("Error adding place: " + error.message);
-    return;
-  }
-  nameInput.value = "";
-  await populatePlaceList(); // Just refresh the list
-}
-
-async function handleRenamePlace(placeId, oldName) {
-  const newName = prompt(`Rename place "${oldName}" to:`, oldName);
-  if (!newName || newName.trim() === "" || newName === oldName) return;
-
-  const { error } = await supabaseClient
-    .from("places")
-    .update({ name: newName.trim() })
-    .eq("id", placeId);
-
-  if (error) {
-    alert("Error renaming place: " + error.message);
-    return;
-  }
-  await populatePlaceList(); // Refresh the list
-}
-
-async function handleDeletePlace(placeId, name) {
-  if (
-    !confirm(
-      `Are you sure you want to delete the place "${name}"?\n\nAll items in this place will become "Unassigned".`
-    )
-  )
-    return;
-
-  // Our database 'items.place_id' is set to ON DELETE SET NULL.
-  // This means Supabase will automatically set all items in this place
-  // to have a place_id of NULL. This is perfect.
-  const { error } = await supabaseClient
-    .from("places")
-    .delete()
-    .eq("id", placeId);
-
-  if (error) {
-    alert("Error deleting place: " + error.message);
-    return;
-  }
-  await populatePlaceList(); // Refresh the list
 }
 
 // --- App Initialization ---

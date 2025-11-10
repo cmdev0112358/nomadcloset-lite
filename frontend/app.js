@@ -317,38 +317,94 @@ async function logAction(action_type, data = {}) {
   else console.log("Action Logged:", newAction);
 }
 
-// --- Render Functions ---
+// --- renderPlaces FUNCTION ---
 async function renderPlaces() {
   const places = await getPlaces();
-  allPlacesCache = places; // Update cache
+  allPlacesCache = places;
   const ul = document.getElementById("places-list");
-  ul.innerHTML = `<li data-id="all" class="${
+  ul.innerHTML = ""; // Clear the list
+
+  // Add the two "virtual" places
+  ul.innerHTML += `<li data-id="all" class="${
     ACTIVE_PLACE_ID === "all" ? "active" : ""
-  }">All Items</li>`;
-  // NEW: Add a "virtual" place for unassigned items
+  }"><span class="place-name">All Items</span></li>`;
   ul.innerHTML += `<li data-id="null" class="${
     ACTIVE_PLACE_ID === "null" ? "active" : ""
-  }">Unassigned</li>`;
+  }"><span class="place-name">Unassigned</span></li>`;
 
+  // Add all real places from the database
   places.forEach((place) => {
-    ul.innerHTML += `<li data-id="${place.id}" class="${
+    ul.innerHTML += `
+            <li data-id="${place.id}" class="${
       ACTIVE_PLACE_ID === place.id ? "active" : ""
-    }">${place.name}</li>`;
+    }">
+                <span class="place-name">${place.name}</span>
+                <div class="action-menu-wrapper">
+                    <button class="action-btn" data-place-id="${
+                      place.id
+                    }">⋮</button>
+                    <div class="action-menu" id="menu-place-${place.id}">
+                        <a href="#" class="menu-rename-place" data-id="${
+                          place.id
+                        }" data-name="${place.name}">Rename</a>
+                        <a href="#" class="menu-delete-place delete" data-id="${
+                          place.id
+                        }" data-name="${place.name}">Delete</a>
+                    </div>
+                </div>
+            </li>
+        `;
   });
 
+  // ---Listeners ---
+
+  // 1. For clicking on the place name
   ul.querySelectorAll("li").forEach((li) => {
-    li.addEventListener("click", () => {
+    li.addEventListener("click", (e) => {
+      // Don't trigger if clicking a button/menu
+      if (e.target.closest(".action-menu-wrapper")) return;
+
       ACTIVE_PLACE_ID = li.getAttribute("data-id");
-      // When we select a new place, clear the search
       currentSearchQuery = "";
       document.getElementById("search-input").value = "";
       currentCategoryFilter = "all";
-      populateCategoryFilter(); // Resets the dropdown
+      populateCategoryFilter();
 
       renderPlaces();
       renderItems();
     });
   });
+
+  // 2. For the "..." button
+  ul.querySelectorAll(".action-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const placeId = e.target.getAttribute("data-place-id");
+      // Use our existing toggle function
+      toggleActionMenu(`place-${placeId}`);
+    });
+  });
+
+  // 3. For the "Rename" link
+  ul.querySelectorAll(".menu-rename-place").forEach((link) => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleRenamePlace(e.target.dataset.id, e.target.dataset.name);
+      closeAllActionMenus();
+    });
+  });
+
+  // 4. For the "Delete" link
+  ul.querySelectorAll(".menu-delete-place").forEach((link) => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleDeletePlace(e.target.dataset.id, e.target.dataset.name);
+      closeAllActionMenus();
+    });
+  });
+
   updatePlaceDropdowns(places);
 }
 
@@ -554,30 +610,7 @@ function setupModals() {
     addPlaceModal.style.display = "block";
     document.getElementById("new-place-name").focus();
   };
-  document.getElementById("save-place-btn").onclick = async () => {
-    const name = document.getElementById("new-place-name").value;
-    if (!name) return alert("Please enter a name.");
-
-    const newPlace = { name: name, user_id: CURRENT_USER_ID };
-    const { data, error } = await supabaseClient
-      .from("places")
-      .insert(newPlace)
-      .select();
-
-    if (error) {
-      alert("Error creating place: " + error.message);
-      return;
-    }
-
-    logAction("create_place", {
-      place_id: data[0].id,
-      place_name: data[0].name,
-    });
-
-    document.getElementById("new-place-name").value = "";
-    addPlaceModal.style.display = "none";
-    renderPlaces();
-  };
+  document.getElementById("save-place-btn").onclick = handleAddPlace;
 
   const addItemModal = document.getElementById("add-item-modal");
   document.getElementById("add-item-btn").onclick = () => {
@@ -740,6 +773,76 @@ async function handleModifyItem(itemId, newName, newQuantity) {
     metadata: { note: `Item modified` },
   });
   await renderItems();
+}
+
+//
+// =============================
+// PLACE MANAGEMENT FUNCTIONS
+// =============================
+//
+async function handleAddPlace() {
+  const nameInput = document.getElementById("new-place-name");
+  const name = nameInput.value.trim();
+  if (!name) {
+    alert("Please enter a place name.");
+    return;
+  }
+
+  const { error } = await supabaseClient
+    .from("places")
+    .insert({ name: name, user_id: CURRENT_USER_ID });
+
+  if (error) {
+    if (error.code === "23505") alert("A place with this name already exists.");
+    else alert("Error adding place: " + error.message);
+    return;
+  }
+  nameInput.value = ""; // Clear the input
+  document.getElementById("add-place-modal").style.display = "none"; // Close modal
+  await renderPlaces(); // Refresh the list
+}
+
+async function handleRenamePlace(placeId, oldName) {
+  const newName = prompt(`Rename place "${oldName}" to:`, oldName);
+  if (!newName || newName.trim() === "" || newName === oldName) return;
+
+  const { error } = await supabaseClient
+    .from("places")
+    .update({ name: newName.trim() })
+    .eq("id", placeId);
+
+  if (error) {
+    alert("Error renaming place: " + error.message);
+    return;
+  }
+  await renderPlaces(); // Refresh the list
+}
+
+async function handleDeletePlace(placeId, name) {
+  if (
+    !confirm(
+      `Are you sure you want to delete the place "${name}"?\n\nAll items in this place will become "Unassigned".`
+    )
+  )
+    return;
+
+  const { error } = await supabaseClient
+    .from("places")
+    .delete()
+    .eq("id", placeId);
+
+  if (error) {
+    alert("Error deleting place: " + error.message);
+    return;
+  }
+
+  // If we deleted the place we are looking at, switch to "All Items"
+  if (ACTIVE_PLACE_ID === placeId) {
+    ACTIVE_PLACE_ID = "all";
+  }
+
+  await renderPlaces(); // Refresh the list
+  await renderItems(); // Refresh items to show "Unassigned"
 }
 
 async function handleDeleteItem(itemId, itemName) {

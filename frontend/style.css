@@ -14,6 +14,7 @@ body {
   display: flex;
   max-width: 1200px;
   margin: 20px auto;
+  align-items: flex-start;
 }
 .sidebar {
   width: 25%;
@@ -416,6 +417,49 @@ Item Action Menu
 }
 
 /*
+==================
+Place Action Menu
+==================
+*/
+
+/* Make the <li> a flex container to hold the menu */
+#places-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  /* The rest of the styles (padding, cursor) are already there */
+}
+
+/* Keep the place name from shrinking */
+#places-list li .place-name {
+  flex-grow: 1;
+}
+
+/* The "..." button for places */
+#places-list .action-btn {
+  background: none;
+  color: #aaa;
+  font-weight: bold;
+  padding: 3px 8px;
+  border-radius: 5px;
+  flex-shrink: 0;
+}
+#places-list .action-btn:hover {
+  background-color: #eee;
+  color: #333;
+}
+
+/* We re-use the .action-menu styles, but must position it */
+#places-list .action-menu-wrapper {
+  position: relative; /* This is the key */
+}
+#places-list .action-menu {
+  top: 30px;
+  right: 0;
+  /* All other .action-menu styles are inherited */
+}
+
+/*
 ========================================
 Smart Header & Bulk Actions
 ========================================
@@ -804,6 +848,30 @@ Burger Menu
   text-transform: uppercase;
   margin-top: 20px;
   padding-left: 20px;
+}
+
+/*
+=================
+Footer 
+=================
+*/
+.app-footer {
+  text-align: center;
+  padding: 30px 20px;
+  margin-top: 40px; /* Space above the footer */
+  color: #888;
+  font-size: 0.9em;
+  border-top: 1px solid #eee;
+}
+.app-footer p {
+  margin: 5px 0;
+}
+.app-footer a {
+  color: #007bff;
+  text-decoration: none;
+}
+.app-footer a:hover {
+  text-decoration: underline;
 }
 
 /*
