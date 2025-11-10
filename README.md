@@ -1,4 +1,4 @@
-# NomadCloset Lite
+# NomadCloset
 
 A lightweight, open-source web app to track personal items across multiple places. Built with Vanilla JS and Supabase.
 
@@ -37,11 +37,11 @@ A lightweight, open-source web app to track personal items across multiple place
 
 1.  In your Supabase dashboard, go to **Project Settings** > **API**.
 2.  Find your **Project URL** and your `anon` **public key**.
-3.  In the `frontend/` directory, create a new file named `config.js`.
-4.  Paste your URL and anon key into `frontend/config.js`:
+3.  In the `docs/` directory, create a new file named `config.js`.
+4.  Paste your URL and anon key into `docs/config.js`:
 
     ```javascript
-    // frontend/config.js
+    // docs/config.js
     export const SUPABASE_URL = "YOUR_SUPABASE_URL";
     export const SUPABASE_KEY = "YOUR_SUPABASE_ANON_KEY";
     ```
@@ -52,21 +52,11 @@ Because the JavaScript uses ES Modules (`import`), you must run this from a loca
 
 1.  **If using VS Code:**
     - Install the **"Live Server"** extension.
-    - Right-click `frontend/login.html` and select **"Open with Live Server"**.
+    - Right-click `docs/login.html` and select **"Open with Live Server"**.
 2.  **If using Python:**
     - `cd` into the project's _root_ directory.
     - Run `python -m http.server 8000`
-    - Open `http://localhost:8000/frontend/login.html` in your browser.
+    - Open `http://localhost:8000/docs/login.html` in your browser.
 
 The app will load. You can now sign up for a new account.
 
----
-
-## How to Run the Analysis
-
-1.  Make sure you have Python, VS Code, and the **Jupyter** and **Python** extensions installed.
-2.  Use the app for a while to generate data.
-3.  Click your user email > **"Export Log (CSV)"**.
-4.  Save the downloaded `nomadcloset_actions_export.csv` into the `analysis/export_examples/` folder.
-5.  Open the `analysis/analysis.ipynb` file in VS Code.
-6.  Click the **"Run All" (▶▶)** button at the top to see the analysis.
