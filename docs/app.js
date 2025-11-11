@@ -10,6 +10,7 @@ let selectedItems = [];
 let currentSearchQuery = "";
 let currentCategoryFilter = "all";
 let currentSortOrder = "name-asc";
+let allPackingListsCache = [];
 
 // --- Supabase Client ---
 const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
@@ -71,6 +72,9 @@ async function initializeApp(user) {
 
   // Fetch all categories into the cache
   await getCategories();
+
+  // Ensure default packing list exist
+  await getPackingLists();
 
   // Setup main app UI
   setupModals();
@@ -259,9 +263,30 @@ async function initDefaultPlaces() {
 async function getPlaces() {
   const { data, error } = await supabaseClient
     .from("places")
+    // Select all columns, including our new 'is_luggage' flag
     .select("*")
-    .eq("user_id", CURRENT_USER_ID);
-  if (error) console.error("Error fetching places:", error);
+    .eq("user_id", CURRENT_USER_ID)
+    .order("name"); // Sort by name
+
+  if (error) {
+    console.error("Error fetching places:", error);
+    return [];
+  }
+  allPlacesCache = data;
+  return data || [];
+}
+
+async function getPackingLists() {
+  const { data, error } = await supabaseClient
+    .from("packing_lists")
+    .select("*")
+    .eq("user_id", CURRENT_USER_ID)
+    .order("name");
+  if (error) {
+    console.error("Error fetching packing lists:", error);
+    return [];
+  }
+  allPackingListsCache = data;
   return data || [];
 }
 
@@ -319,31 +344,37 @@ async function logAction(action_type, data = {}) {
 
 // --- renderPlaces FUNCTION ---
 async function renderPlaces() {
+  // 1. RENDER PLACES (No change here)
   const places = await getPlaces();
   allPlacesCache = places;
-  const ul = document.getElementById("places-list");
-  ul.innerHTML = ""; // Clear the list
-
-  // Add the two "virtual" places
-  ul.innerHTML += `<li data-id="all" class="${
+  const placesUl = document.getElementById("places-list");
+  placesUl.innerHTML = "";
+  placesUl.innerHTML += `<li data-id="all" data-type="place" class="${
     ACTIVE_PLACE_ID === "all" ? "active" : ""
   }"><span class="place-name">All Items</span></li>`;
-  ul.innerHTML += `<li data-id="null" class="${
+  placesUl.innerHTML += `<li data-id="null" data-type="place" class="${
     ACTIVE_PLACE_ID === "null" ? "active" : ""
   }"><span class="place-name">Unassigned</span></li>`;
 
-  // Add all real places from the database
   places.forEach((place) => {
-    ul.innerHTML += `
-            <li data-id="${place.id}" class="${
+    const isLuggage = place.is_luggage === true;
+    placesUl.innerHTML += `
+            <li data-id="${place.id}" data-type="place" class="${
       ACTIVE_PLACE_ID === place.id ? "active" : ""
     }">
-                <span class="place-name">${place.name}</span>
+                <span class="place-name">${isLuggage ? "🧳 " : ""}${
+      place.name
+    }</span>
                 <div class="action-menu-wrapper">
                     <button class="action-btn" data-place-id="${
                       place.id
                     }">⋮</button>
                     <div class="action-menu" id="menu-place-${place.id}">
+                        ${
+                          !isLuggage
+                            ? `<a href="#" class="menu-set-luggage" data-id="${place.id}">Set as Luggage</a>`
+                            : ""
+                        }
                         <a href="#" class="menu-rename-place" data-id="${
                           place.id
                         }" data-name="${place.name}">Rename</a>
@@ -356,37 +387,58 @@ async function renderPlaces() {
         `;
   });
 
-  // ---Listeners ---
+  // 2. RENDER PACKING LISTS
+  const packingLists = await getPackingLists();
+  const listsUl = document.getElementById("packing-lists-list");
+  listsUl.innerHTML = ""; // Clear list
 
-  // 1. For clicking on the place name
-  ul.querySelectorAll("li").forEach((li) => {
+  packingLists.forEach((list) => {
+    // Use a "list-" prefix to avoid ID conflicts with places
+    const listId = `list-${list.id}`;
+    listsUl.innerHTML += `
+            <li data-id="${listId}" data-type="list" class="${
+      ACTIVE_PLACE_ID === listId ? "active" : ""
+    }">
+                ${list.name}
+            </li>
+        `;
+  });
+
+  // 3. COMBINED LISTENERS
+  // Listen for clicks on *both* lists
+  document.querySelectorAll(".sidebar li[data-id]").forEach((li) => {
     li.addEventListener("click", (e) => {
-      // Don't trigger if clicking a button/menu
       if (e.target.closest(".action-menu-wrapper")) return;
 
       ACTIVE_PLACE_ID = li.getAttribute("data-id");
+
+      // Clear filters
       currentSearchQuery = "";
       document.getElementById("search-input").value = "";
       currentCategoryFilter = "all";
       populateCategoryFilter();
 
-      renderPlaces();
-      renderItems();
+      renderPlaces(); // Re-renders both lists to show "active" state
+      renderItems(); // Render the correct view (inventory or checklist)
     });
   });
 
-  // 2. For the "..." button
-  ul.querySelectorAll(".action-btn").forEach((btn) => {
+  // 4. Place-specific menu listeners (no change)
+  placesUl.querySelectorAll(".action-btn").forEach((btn) => {
     btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      const placeId = e.target.getAttribute("data-place-id");
-      // Use our existing toggle function
-      toggleActionMenu(`place-${placeId}`);
+      toggleActionMenu(`place-${e.target.getAttribute("data-place-id")}`);
     });
   });
-
-  // 3. For the "Rename" link
-  ul.querySelectorAll(".menu-rename-place").forEach((link) => {
+  placesUl.querySelectorAll(".menu-set-luggage").forEach((link) => {
+    link.addEventListener("click", (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      handleSetAsLuggage(e.target.dataset.id);
+      closeAllActionMenus();
+    });
+  });
+  placesUl.querySelectorAll(".menu-rename-place").forEach((link) => {
     link.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -394,9 +446,7 @@ async function renderPlaces() {
       closeAllActionMenus();
     });
   });
-
-  // 4. For the "Delete" link
-  ul.querySelectorAll(".menu-delete-place").forEach((link) => {
+  placesUl.querySelectorAll(".menu-delete-place").forEach((link) => {
     link.addEventListener("click", (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -408,161 +458,260 @@ async function renderPlaces() {
   updatePlaceDropdowns(places);
 }
 
+// --- renderItems FUNCTION ---
+
 async function renderItems() {
-  const items = await getItems();
   const ul = document.getElementById("items-list");
-  ul.innerHTML = "";
+  const itemsHeader = document.getElementById("items-header");
+  const filterBar = document.getElementById("filter-bar");
+  ul.innerHTML = ""; // Clear list
 
-  // 1. Filter by Active Place
-  let placeFilteredItems;
-  if (ACTIVE_PLACE_ID === "all") {
-    placeFilteredItems = items;
-  } else if (ACTIVE_PLACE_ID === "null") {
-    // Show items where place_id is null
-    placeFilteredItems = items.filter((item) => item.place_id === null);
-  } else {
-    // Show items for a specific place
-    placeFilteredItems = items.filter(
-      (item) => item.place_id === ACTIVE_PLACE_ID
-    );
-  }
-  // 2. Filter by Search Query
-  const searchFilteredItems =
-    currentSearchQuery === ""
-      ? placeFilteredItems
-      : placeFilteredItems.filter((item) =>
-          item.name.toLowerCase().includes(currentSearchQuery.toLowerCase())
-        );
+  // Check if we are in "Packing List Mode"
+  if (ACTIVE_PLACE_ID.startsWith("list-")) {
+    // ---- RENDER CHECKLIST MODE ----
 
-  // 3. Filter by Category
-  const filteredItems =
-    currentCategoryFilter === "all"
-      ? searchFilteredItems
-      : searchFilteredItems.filter(
-          (item) => item.category_id === currentCategoryFilter
-        );
+    // 1. Hide the normal headers and filters
+    itemsHeader.classList.add("hidden");
+    filterBar.classList.add("hidden");
 
-  // Update the header *before* rendering items
-  updateBulkActionUI(filteredItems.length);
+    // 2. Get the template
+    const listId = ACTIVE_PLACE_ID.replace("list-", "");
+    const template = allPackingListsCache.find((l) => l.id === listId);
+    if (!template) {
+      ul.innerHTML = "<li>Packing list not found.</li>";
+      return;
+    }
 
-  if (filteredItems.length === 0) {
-    ul.innerHTML = "<li>No items found in this place.</li>";
-    return;
-  }
+    // 3. Get *all* current inventory items to cross-reference
+    const allItems = await getItems();
 
-  filteredItems.forEach((item) => {
-    const placeName = item.places
-      ? item.places.name
-      : getPlaceName(item.place_id, allPlacesCache);
+    // 4. Get the flagged luggage place
+    const luggagePlace = allPlacesCache.find((p) => p.is_luggage === true);
+    if (!luggagePlace) {
+      ul.innerHTML = "<li>Error: No 🧳 Luggage place set.</li>";
+      return;
+    }
 
-    const isSelected = selectedItems.includes(item.id);
+    ul.innerHTML = `<h3>Packing for: ${template.name}</h3>`;
+    let itemsToMove = []; // Array to hold missing items
 
-    ul.innerHTML += `
-          <li data-id="${item.id}" class="${isSelected ? "item-selected" : ""}">
-              
-              <div class="item-info">
-                  <input type="checkbox" class="item-checkbox" data-id="${
-                    item.id
-                  }" ${isSelected ? "checked" : ""}>
-                  <div> 
-                    <strong>${item.name} ${
-      item.quantity > 1 ? `(x${item.quantity})` : ""
-    }</strong> (${placeName})
-                    <span class="item-category">${
-                      item.categories ? item.categories.name : ""
-                    }</span>
-                  </div>
-              </div>
-              
-              <div class="action-menu-wrapper">
-                  <button class="action-btn" data-item-id="${
-                    item.id
-                  }">⋮</button>
-                  <div class="action-menu" id="menu-${item.id}">
-                      <a href="#" class="menu-move" data-id="${
-                        item.id
-                      }" data-name="${item.name}" data-from-id="${
-      item.place_id
-    }">Move</a>
-                      <a href="#" class="menu-modify" data-id="${
-                        item.id
-                      }" data-name="${item.name}" data-quantity="${
-      item.quantity
-    }">Modify</a>
-                      <a href="#" class="menu-delete delete" data-id="${
-                        item.id
-                      }" data-name="${item.name}">Delete</a>
-                  </div>
-              </div>
-          </li>
-      `;
-  });
+    // 5. Loop through the TEMPLATE items
+    template.items.forEach((templateItem) => {
+      // Find a matching item in our inventory
+      let foundItem = allItems.find((item) => item.id === templateItem.id);
 
-  // --- Event Listeners for Menus ---
-  ul.querySelectorAll(".action-btn").forEach((btn) => {
-    btn.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const itemId = e.target.getAttribute("data-item-id");
-      toggleActionMenu(itemId);
-    });
-  });
-  ul.querySelectorAll(".menu-move").forEach((link) => {
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      openMoveModal(
-        e.target.dataset.id,
-        e.target.dataset.name,
-        e.target.dataset.fromId
-      );
-      closeAllActionMenus();
-    });
-  });
-  ul.querySelectorAll(".menu-modify").forEach((link) => {
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      openModifyModal(
-        e.target.dataset.id,
-        e.target.dataset.name,
-        e.target.dataset.quantity
-      );
-      closeAllActionMenus();
-    });
-  });
-  ul.querySelectorAll(".menu-delete").forEach((link) => {
-    link.addEventListener("click", (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const { id, name } = e.target.dataset;
-      if (confirm(`Are you sure you want to delete "${name}"?`)) {
-        handleDeleteItem(id, name);
+      let statusHTML = "";
+      if (foundItem) {
+        // We found it!
+        if (foundItem.place_id === luggagePlace.id) {
+          // Case 1: Already Packed
+          statusHTML = `<li class="item-selected">
+                        <input type="checkbox" checked disabled> 
+                        <span style="text-decoration: line-through;">${foundItem.name} (x${templateItem.quantity})</span>
+                        <span class="item-category">Already in ${luggagePlace.name}</span>
+                    </li>`;
+        } else {
+          // Case 2: Found (Needs Packing)
+          const place = allPlacesCache.find((p) => p.id === foundItem.place_id);
+          const placeName = place ? place.name : "Unassigned";
+          itemsToMove.push(foundItem.id); // Add to our "to-move" list
+          statusHTML = `<li>
+                        <input type="checkbox" class="checklist-item-checkbox" data-id="${foundItem.id}">
+                        <strong>${foundItem.name} (x${templateItem.quantity})</strong>
+                        <span class="item-category">Found in: ${placeName}</span>
+                    </li>`;
+        }
+      } else {
+        // Case 3: Missing (Item was deleted or renamed)
+        // We use the "fallback name" from the template
+        statusHTML = `<li style="opacity: 0.5;">
+                    <input type="checkbox" disabled>
+                    <strong>${templateItem.name} (x${templateItem.quantity})</strong>
+                    <span class="item-category" style="color: red;">⚠️ Not found in inventory</span>
+                </li>`;
       }
-      closeAllActionMenus();
+      ul.innerHTML += statusHTML;
     });
-  });
 
-  // --- Event Listeners for Checkboxes ---
-  ul.querySelectorAll(".item-checkbox").forEach((checkbox) => {
-    checkbox.addEventListener("click", (e) => {
-      e.stopPropagation();
-      const itemId = e.target.getAttribute("data-id");
-      handleItemSelection(itemId, filteredItems.length);
+    // 6. Add the "Bulk Move" button
+    if (itemsToMove.length > 0) {
+      ul.innerHTML += `<hr><button id="pack-missing-btn">Move ${itemsToMove.length} items to ${luggagePlace.name}</button>`;
+
+      // Add listener for the new button
+      document
+        .getElementById("pack-missing-btn")
+        .addEventListener("click", async () => {
+          // Get all checked items
+          const checkedItemIds = [];
+          ul.querySelectorAll(".checklist-item-checkbox:checked").forEach(
+            (cb) => {
+              checkedItemIds.push(cb.dataset.id);
+            }
+          );
+
+          if (checkedItemIds.length === 0) {
+            alert("Please check the items you want to pack.");
+            return;
+          }
+
+          // Use our existing bulk-move logic!
+          selectedItems = checkedItemIds; // Set the global array
+          // Manually call the save function
+          await handleSaveBulkMove(luggagePlace.id);
+
+          // Refresh the checklist
+          renderItems();
+        });
+    }
+  } else {
+    // ---- RENDER NORMAL INVENTORY MODE ----
+
+    // 1. Show the normal headers and filters
+    itemsHeader.classList.remove("hidden");
+    filterBar.classList.remove("hidden");
+
+    // 2. Run all our existing filter logic
+    const items = await getItems();
+    let placeFilteredItems;
+    if (ACTIVE_PLACE_ID === "all") placeFilteredItems = items;
+    else if (ACTIVE_PLACE_ID === "null")
+      placeFilteredItems = items.filter((item) => item.place_id === null);
+    else
+      placeFilteredItems = items.filter(
+        (item) => item.place_id === ACTIVE_PLACE_ID
+      );
+
+    const searchFilteredItems =
+      currentSearchQuery === ""
+        ? placeFilteredItems
+        : placeFilteredItems.filter((item) =>
+            item.name.toLowerCase().includes(currentSearchQuery.toLowerCase())
+          );
+    const filteredItems =
+      currentCategoryFilter === "all"
+        ? searchFilteredItems
+        : searchFilteredItems.filter(
+            (item) => item.category_id === currentCategoryFilter
+          );
+
+    // 3. Update header
+    updateBulkActionUI(filteredItems.length);
+
+    // 4. Render the list
+    if (filteredItems.length === 0) {
+      ul.innerHTML = "<li>No items found in this place.</li>";
+      return;
+    }
+    filteredItems.forEach((item) => {
+      const placeName = item.places
+        ? item.places.name
+        : getPlaceName(item.place_id, allPlacesCache);
+      const isSelected = selectedItems.includes(item.id);
+      ul.innerHTML += `
+                <li data-id="${item.id}" class="${
+        isSelected ? "item-selected" : ""
+      }">
+                    <div class="item-info">
+                        <input type="checkbox" class="item-checkbox" data-id="${
+                          item.id
+                        }" ${isSelected ? "checked" : ""}>
+                        <div> 
+                            <strong>${item.name} ${
+        item.quantity > 1 ? `(x${item.quantity})` : ""
+      }</strong> (${placeName})
+                            <span class="item-category">${
+                              item.categories ? item.categories.name : ""
+                            }</span>
+                        </div>
+                    </div>
+                    <div class="action-menu-wrapper">
+                        <button class="action-btn" data-item-id="${
+                          item.id
+                        }">⋮</button>
+                        <div class="action-menu" id="menu-${item.id}">
+                            <a href="#" class="menu-modify" data-id="${
+                              item.id
+                            }" data-name="${item.name}" data-quantity="${
+        item.quantity
+      }">Modify</a>
+                            <a href="#" class="menu-move" data-id="${
+                              item.id
+                            }" data-name="${item.name}" data-from-id="${
+        item.place_id
+      }">Move</a>
+                            <a href="#" class="menu-delete delete" data-id="${
+                              item.id
+                            }" data-name="${item.name}">Delete</a>
+                        </div>
+                    </div>
+                </li>
+            `;
     });
-  });
-  ul.querySelectorAll("li").forEach((li) => {
-    li.addEventListener("click", (e) => {
-      if (
-        e.target.matches("button") ||
-        e.target.matches("a") ||
-        e.target.matches(".item-checkbox") ||
-        e.target.closest(".action-menu-wrapper")
-      )
-        return;
-      const itemId = li.getAttribute("data-id");
-      handleItemSelection(itemId, filteredItems.length);
+
+    // 5. Add all listeners
+    ul.querySelectorAll(".action-btn").forEach((btn) => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const itemId = e.target.getAttribute("data-item-id");
+        toggleActionMenu(itemId);
+      });
     });
-  });
+    ul.querySelectorAll(".menu-modify").forEach((link) => {
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openModifyModal(
+          e.target.dataset.id,
+          e.target.dataset.name,
+          e.target.dataset.quantity
+        );
+        closeAllActionMenus();
+      });
+    });
+    ul.querySelectorAll(".menu-move").forEach((link) => {
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        openMoveModal(
+          e.target.dataset.id,
+          e.target.dataset.name,
+          e.target.dataset.fromId
+        );
+        closeAllActionMenus();
+      });
+    });
+    ul.querySelectorAll(".menu-delete").forEach((link) => {
+      link.addEventListener("click", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const { id, name } = e.target.dataset;
+        if (confirm(`Are you sure you want to delete "${name}"?`)) {
+          handleDeleteItem(id, name);
+        }
+        closeAllActionMenus();
+      });
+    });
+    ul.querySelectorAll(".item-checkbox").forEach((checkbox) => {
+      checkbox.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const itemId = e.target.getAttribute("data-id");
+        handleItemSelection(itemId, filteredItems.length);
+      });
+    });
+    ul.querySelectorAll("li").forEach((li) => {
+      li.addEventListener("click", (e) => {
+        if (
+          e.target.matches("button") ||
+          e.target.matches("a") ||
+          e.target.matches(".item-checkbox") ||
+          e.target.closest(".action-menu-wrapper")
+        )
+          return;
+        const itemId = li.getAttribute("data-id");
+        handleItemSelection(itemId, filteredItems.length);
+      });
+    });
+  }
 }
 
 function updatePlaceDropdowns(places) {
@@ -727,7 +876,10 @@ function setupModals() {
   };
 
   // Bulk Move modal
-  document.getElementById("save-bulk-move-btn").onclick = handleSaveBulkMove;
+  document.getElementById("save-bulk-move-btn").onclick = () => {
+    const toPlaceId = document.getElementById("bulk-move-place-select").value;
+    handleSaveBulkMove(toPlaceId); // Pass the ID as an argument
+  };
 
   // Generic close buttons
   document.querySelectorAll(".modal .close-btn").forEach((btn) => {
@@ -880,6 +1032,39 @@ async function handleDeletePlace(placeId, name) {
   await renderItems(); // Refresh items to show "Unassigned"
 }
 
+/**
+ * Sets a place as the one and only "Luggage" place.
+ * This runs two commands to ensure only one is ever flagged.
+ */
+async function handleSetAsLuggage(placeId) {
+  console.log(`Setting place ${placeId} as new luggage...`);
+
+  // 1. Set ALL places to false (this is the key)
+  const { error: clearError } = await supabaseClient
+    .from("places")
+    .update({ is_luggage: false })
+    .eq("user_id", CURRENT_USER_ID);
+
+  if (clearError) {
+    alert("Error clearing old luggage flag: " + clearError.message);
+    return;
+  }
+
+  // 2. Set the NEW place to true
+  const { error: setError } = await supabaseClient
+    .from("places")
+    .update({ is_luggage: true })
+    .eq("id", placeId);
+
+  if (setError) {
+    alert("Error setting new luggage flag: " + setError.message);
+    return;
+  }
+
+  // 3. Refresh the UI
+  await renderPlaces();
+}
+
 async function handleDeleteItem(itemId, itemName) {
   console.log(`Deleting item ${itemId}: ${itemName}`);
   const { error } = await supabaseClient
@@ -985,14 +1170,16 @@ async function handleBulkMove() {
   document.getElementById("bulk-move-modal").style.display = "block";
 }
 
-async function handleSaveBulkMove() {
-  const toPlaceId = document.getElementById("bulk-move-place-select").value;
+// --- handleSaveBulkMove ---
+async function handleSaveBulkMove(toPlaceId) {
   if (!toPlaceId) {
     alert("Could not find a place to move to.");
     return;
   }
+
   console.log(`Bulk moving ${selectedItems.length} items to ${toPlaceId}`);
 
+  // 1. Update all items
   const { error } = await supabaseClient
     .from("items")
     .update({ place_id: toPlaceId })
@@ -1003,12 +1190,17 @@ async function handleSaveBulkMove() {
     alert("Error moving items: " + error.message);
     return;
   }
+
+  // 2. Log this as one action
   logAction("bulk_move_items", {
     to_place_id: toPlaceId,
     metadata: { item_count: selectedItems.length, item_ids: selectedItems },
   });
 
+  // 3. Close modal
   document.getElementById("bulk-move-modal").style.display = "none";
+
+  // 4. Clear selection and re-render
   selectedItems = [];
   renderItems();
   updateBulkActionUI();

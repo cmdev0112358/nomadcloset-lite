@@ -885,6 +885,94 @@ Quick Add Category
 }
 
 /*
+==============================
+Settings Page - Packing Lists 
+==============================
+*/
+#packing-list-list {
+  list-style: none;
+  max-height: 300px;
+  overflow-y: auto;
+}
+#packing-list-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 5px;
+  border-bottom: 1px solid #f4f4f4;
+}
+#packing-list-list li span {
+  flex-grow: 1;
+}
+#packing-list-list li button {
+  font-size: 0.8em;
+  padding: 3px 8px;
+  margin-left: 5px;
+}
+/* We can re-use the .delete-btn styles */
+#packing-list-list .delete-list-btn {
+  background-color: #6c757d;
+}
+#packing-list-list .delete-list-btn:hover {
+  background-color: #dc3545;
+}
+#packing-list-list .rename-list-btn {
+  background-color: #6c757d;
+}
+#packing-list-list .rename-list-btn:hover {
+  background-color: #007bff;
+}
+
+/*
+========================================
+Packing List Sidebar 
+========================================
+*/
+
+/* Add a margin to separate the new section */
+#packing-lists-header {
+  margin-top: 20px;
+}
+
+/* Style the packing list items */
+#packing-lists-list li {
+  padding: 10px;
+  cursor: pointer;
+  border-radius: 5px;
+}
+#packing-lists-list li:hover {
+  background: #f4f4f4;
+}
+#packing-lists-list li.active {
+  background: #eef;
+  font-weight: bold;
+}
+
+/*
+=====================
+Packing List Button
+=====================
+*/
+
+/* This is the new button for the packing list */
+#pack-missing-btn {
+  /* Use all our normal button styles */
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 10px 15px; /* Make it a nice size */
+  border-radius: 5px;
+  cursor: pointer;
+  margin: 15px 0 5px 0; /* Add margin */
+  font-size: 1em;
+  font-weight: bold;
+  width: 100%; /* Make it full-width */
+}
+#pack-missing-btn:hover {
+  background: #0056b3;
+}
+
+/*
 =================
 Footer 
 =================

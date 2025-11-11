@@ -37,6 +37,7 @@
         <ul>
           <li id="nav-profile" class="active">Profile</li>
           <li id="nav-categories">Categories</li>
+          <li id="nav-packing-lists">Packing Lists</li>
         </ul>
       </nav>
 
@@ -87,6 +88,34 @@
 
           <h4>Your Categories</h4>
           <ul id="category-list"></ul>
+        </div>
+
+        <div id="packing-lists-page" class="settings-page hidden">
+          <h3>Manage Packing Lists</h3>
+
+          <form id="add-list-form" class="settings-form">
+            <h4>Create New Packing List</h4>
+            <p>
+              This will take a "snapshot" of all items currently in your
+              "Valigia" (Luggage) place.
+            </p>
+            <label for="new-list-name"
+              >New List Name (e.g., "Weekend Trip")</label
+            >
+            <input
+              type="text"
+              id="new-list-name"
+              placeholder="New list name"
+              required
+            />
+            <button type="submit">Save Snapshot</button>
+            <p id="new-list-message" class="form-message"></p>
+          </form>
+
+          <hr class="modal-hr" />
+
+          <h4>Your Packing Lists</h4>
+          <ul id="packing-list-list"></ul>
         </div>
       </section>
     </main>
